@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jakarta Traffic Congestion Prediction System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 25px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            height: calc(100vh - 150px);
+            min-height: 650px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 25px;
+            overflow-y: auto;
+            border-right: 2px solid #dee2e6;
+        }
+
+        .panel-section {
+            background: white;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-section h2 {
+            font-size: 1.2em;
+            color: #2a5298;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .coord-display {
+            margin-top: 5px;
+            padding: 8px 10px;
+            background: #e9ecef;
+            border-radius: 6px;
+            font-size: 0.8em;
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .weather-selector {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .weather-option {
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.85em;
+        }
+
+        .weather-option:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .weather-option.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .map-container {
+            position: relative;
+            background: #e9ecef;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.1em;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .route-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border-left: 5px solid;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .route-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .route-title {
+            font-weight: 600;
+            font-size: 1.05em;
+            color: #212529;
+        }
+
+        .congestion-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: white;
+        }
+
+        .route-info {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 8px;
+        }
+
+        .route-info div {
+            margin-bottom: 4px;
+        }
+
+        .congestion-meter {
+            width: 100%;
+            height: 18px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .congestion-fill {
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        .gate-chip {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin: 2px;
+        }
+
+        .recommendation {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+        }
+
+        .recommendation h3 {
+            color: #155724;
+            margin-bottom: 8px;
+            font-size: 1.05em;
+        }
+
+        .recommendation p {
+            color: #155724;
+            margin: 0;
+            font-size: 0.9em;
+        }
+
+        .info-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .legend {
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+
+        .route-color {
+            width: 25px;
+            height: 18px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .system-info {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            color: #495057;
+        }
+
+        .system-info div {
+            margin-bottom: 6px;
+        }
+
+        .system-info div:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚗 Jakarta Traffic Congestion Prediction System</h1>
+            <p class="subtitle">Big Data Analytics • 27 Toll Gates • Weather-Integrated Predictions</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <div class="panel-section">
+                    <h2>📍 Route Selection</h2>
+                    
+                    <div class="input-group">
+                        <label for="origin-name">Origin Location:</label>
+                        <input type="text" id="origin-name" placeholder="Enter origin (e.g., Monas Jakarta)">
+                        <div class="coord-display" id="origin-coords">Click map or enter coordinates</div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Or enter coordinates:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <input type="number" id="origin-lat" placeholder="Latitude" step="0.0001">
+                            <input type="number" id="origin-lng" placeholder="Longitude" step="0.0001">
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label for="dest-name">Destination Location:</label>
+                        <input type="text" id="dest-name" placeholder="Enter destination">
+                        <div class="coord-display" id="dest-coords">Click map or enter coordinates</div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Or enter coordinates:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <input type="number" id="dest-lat" placeholder="Latitude" step="0.0001">
+                            <input type="number" id="dest-lng" placeholder="Longitude" step="0.0001">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>🌤️ Weather Condition</h2>
+                    <div class="weather-selector">
+                        <div class="weather-option active" data-weather="clear" onclick="selectWeather('clear')">
+                            ☀️ Clear
+                        </div>
+                        <div class="weather-option" data-weather="cloudy" onclick="selectWeather('cloudy')">
+                            ☁️ Cloudy
+                        </div>
+                        <div class="weather-option" data-weather="rain" onclick="selectWeather('rain')">
+                            🌧️ Rain
+                        </div>
+                        <div class="weather-option" data-weather="heavy_rain" onclick="selectWeather('heavy_rain')">
+                            ⛈️ Heavy Rain
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <button class="btn btn-primary" onclick="predictCongestion()">
+                        🔮 Predict Congestion
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearAll()">
+                        🗑️ Clear All
+                    </button>
+                </div>
+
+                <div class="panel-section" id="results-panel" style="display: none;">
+                    <h2>📊 Prediction Results</h2>
+                    <div id="routes-list"></div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>📈 Legend</h2>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <span class="route-color" style="background: #FF0000;"></span>
+                            <span>Route 1 - Direct</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="route-color" style="background: #0000FF;"></span>
+                            <span>Route 2 - Northern</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="route-color" style="background: #00FF00;"></span>
+                            <span>Route 3 - Southern</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="route-color" style="background: #FFA500;"></span>
+                            <span>Route 4 - Alternative</span>
+                        </div>
+                    </div>
+
+                    <div class="system-info" style="margin-top: 15px;">
+                        <div><strong>📊 Data Records:</strong> <span id="total-records">Loading...</span></div>
+                        <div><strong>🏢 Toll Gates:</strong> <span id="toll-count">27</span></div>
+                        <div><strong>🕐 Last Update:</strong> <span id="last-update">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="map"></div>
+                <div id="loading" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Processing Big Data Analytics...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let markers = { origin: null, destination: null };
+        let routeLayers = [];
+        let tollGateMarkers = [];
+        let selectedWeather = 'clear';
+        let originCoords = null;
+        let destCoords = null;
+        let clickMode = 'origin'; // 'origin' or 'destination'
+
+        const JAKARTA_CENTER = [-6.2088, 106.8456];
+        const API_BASE = 'http://localhost:5000/api';
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView(JAKARTA_CENTER, 11);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Map click handler
+            map.on('click', function(e) {
+                if (clickMode === 'origin') {
+                    setOrigin(e.latlng.lat, e.latlng.lng);
+                    clickMode = 'destination';
+                } else {
+                    setDestination(e.latlng.lat, e.latlng.lng);
+                    clickMode = 'origin';
+                }
+            });
+
+            // Load toll gates
+            loadTollGates();
+            loadSystemStatus();
+        }
+
+        async function loadTollGates() {
+            try {
+                const response = await fetch(`${API_BASE}/toll-gates`);
+                const gates = await response.json();
+
+                gates.forEach(gate => {
+                    const marker = L.circleMarker([gate.lat, gate.lng], {
+                        radius: 5,
+                        fillColor: '#4285F4',
+                        color: '#FFFFFF',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+
+                    let popupContent = `<b>${gate.name}</b><br>`;
+                    if (gate.baseline) {
+                        popupContent += `Avg Vehicles: ${gate.baseline.avg_vehicles}<br>`;
+                        popupContent += `Avg Speed: ${gate.baseline.avg_speed} km/h<br>`;
+                        popupContent += `High Congestion: ${gate.baseline.high_congestion_rate}%`;
+                    }
+
+                    marker.bindPopup(popupContent);
+                    tollGateMarkers.push(marker);
+                });
+            } catch (error) {
+                console.error('Error loading toll gates:', error);
+            }
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/system-status`);
+                const status = await response.json();
+
+                document.getElementById('total-records').textContent = status.total_records.toLocaleString();
+                document.getElementById('toll-count').textContent = status.toll_gates_loaded;
+                document.getElementById('last-update').textContent = new Date(status.timestamp).toLocaleTimeString();
+            } catch (error) {
+                console.error('Error loading system status:', error);
+            }
+        }
+
+        function setOrigin(lat, lng) {
+            originCoords = { lat, lng };
+            
+            if (markers.origin) map.removeLayer(markers.origin);
+            
+            markers.origin = L.circleMarker([lat, lng], {
+                radius: 12,
+                fillColor: '#00FF00',
+                color: '#FFFFFF',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(map);
+            
+            markers.origin.bindPopup('<b>ORIGIN</b>').openPopup();
+            
+            document.getElementById('origin-coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            document.getElementById('origin-lat').value = lat.toFixed(6);
+            document.getElementById('origin-lng').value = lng.toFixed(6);
+        }
+
+        function setDestination(lat, lng) {
+            destCoords = { lat, lng };
+            
+            if (markers.destination) map.removeLayer(markers.destination);
+            
+            markers.destination = L.circleMarker([lat, lng], {
+                radius: 12,
+                fillColor: '#FF0000',
+                color: '#FFFFFF',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(map);
+            
+            markers.destination.bindPopup('<b>DESTINATION</b>').openPopup();
+            
+            document.getElementById('dest-coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            document.getElementById('dest-lat').value = lat.toFixed(6);
+            document.getElementById('dest-lng').value = lng.toFixed(6);
+        }
+
+        function selectWeather(weather) {
+            selectedWeather = weather;
+            document.querySelectorAll('.weather-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            document.querySelector(`[data-weather="${weather}"]`).classList.add('active');
+        }
+
+        async function predictCongestion() {
+            // Get coordinates
+            const originLat = parseFloat(document.getElementById('origin-lat').value);
+            const originLng = parseFloat(document.getElementById('origin-lng').value);
+            const destLat = parseFloat(document.getElementById('dest-lat').value);
+            const destLng = parseFloat(document.getElementById('dest-lng').value);
+
+            if (!originLat || !originLng || !destLat || !destLng) {
+                alert('Please set both origin and destination!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            clearRoutes();
+
+            try {
+                const response = await fetch(`${API_BASE}/predict-routes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin_lat: originLat,
+                        origin_lng: originLng,
+                        dest_lat: destLat,
+                        dest_lng: destLng,
+                        weather: selectedWeather
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Draw routes
+                for (const route of data.routes) {
+                    await drawRoute(route);
+                }
+
+                // Display results
+                displayResults(data.routes);
+
+            } catch (error) {
+                console.error('Error predicting congestion:', error);
+                alert('Error connecting to prediction server. Make sure Python backend is running!');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        async function drawRoute(route) {
+            const coordinates = route.gates.map(g => `${g.location.lng},${g.location.lat}`).join(';');
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`;
+            
+            try {
+                const response = await fetch(osrmUrl);
+                const data = await response.json();
+
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    const latlngs = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                    const polyline = L.polyline(latlngs, {
+                        color: route.color,
+                        weight: 6,
+                        opacity: 0.7
+                    }).addTo(map);
+
+                    polyline.bindPopup(`
+                        <b>Route ${route.route_id} (${route.type})</b><br>
+                        Congestion: ${route.overall_congestion}%<br>
+                        Weather Impact: ${route.weather_condition}
+                    `);
+
+                    routeLayers.push(polyline);
+
+                    // Add waypoint markers
+                    route.gates.forEach((gate, idx) => {
+                        const isStart = idx === 0;
+                        const isEnd = idx === route.gates.length - 1;
+                        
+                        let markerHtml;
+                        if (isStart) {
+                            markerHtml = `<div style="background: #00FF00; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 14px;">S</div>`;
+                        } else if (isEnd) {
+                            markerHtml = `<div style="background: #FF0000; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 14px;">E</div>`;
+                        } else {
+                            markerHtml = `<div style="background: ${route.color}; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 11px;">${idx}</div>`;
+                        }
+                        
+                        const marker = L.marker([gate.location.lat, gate.location.lng], {
+                            icon: L.divIcon({
+                                html: markerHtml,
+                                className: '',
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]
+                            })
+                        }).addTo(map);
+                        
+                        marker.bindPopup(`
+                            <b>${gate.gate_name}</b><br>
+                            Predicted Congestion: ${gate.congestion_probability}%<br>
+                            ${gate.baseline_data ? `Avg Vehicles: ${gate.baseline_data.avg_vehicles}<br>Avg Speed: ${gate.baseline_data.avg_speed} km/h` : ''}
+                        `);
+                        
+                        routeLayers.push(marker);
+                    });
+
+                    if (routeLayers.length <= route.gates.length + 1) {
+                        map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                    }
+                }
+            } catch (error) {
+                console.error('Error drawing route:', error);
+            }
+        }
+
+        function displayResults(routes) {
+            const resultsPanel = document.getElementById('results-panel');
+            const routesList = document.getElementById('routes-list');
+            
+            routesList.innerHTML = '';
+            resultsPanel.style.display = 'block';
+
+            // Find best route
+            const sortedRoutes = [...routes].sort((a, b) => a.overall_congestion - b.overall_congestion);
+
+            // Add recommendation
+            const recommendation = document.createElement('div');
+            recommendation.className = 'recommendation';
+            recommendation.innerHTML = `
+                <h3>✅ Recommended Route</h3>
+                <p><strong>Route ${sortedRoutes[0].route_id} (${sortedRoutes[0].type})</strong> 
+                has the lowest predicted congestion at <strong>${sortedRoutes[0].overall_congestion}%</strong></p>
+            `;
+            routesList.appendChild(recommendation);
+
+            // Add route cards
+            routes.forEach(route => {
+                const card = createRouteCard(route);
+                routesList.appendChild(card);
+            });
+        }
+
+        function createRouteCard(route) {
+            const card = document.createElement('div');
+            card.className = 'route-card';
+            card.style.borderLeftColor = route.color;
+
+            const congestionColor = getCongestionColor(route.overall_congestion);
+            const fillColor = getCongestionFillColor(route.overall_congestion);
+
+            card.innerHTML = `
+                <div class="route-header">
+                    <div class="route-title">Route ${route.route_id} - ${route.type}</div>
+                    <div class="congestion-badge" style="background: ${congestionColor}">
+                        ${route.overall_congestion}%
+                    </div>
+                </div>
+                <div class="route-info">
+                    <div><strong>Toll Gates:</strong> ${route.gate_count}</div>
+                    <div><strong>Weather:</strong> ${route.weather_condition}</div>
+                    <div><strong>Time:</strong> ${new Date(route.prediction_time).toLocaleTimeString()}</div>
+                    <div style="margin-top: 5px;">
+                        <strong>Gates:</strong><br>
+                        ${route.gates.map(g => `<span class="gate-chip">${g.gate_name}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="congestion-meter">
+                    <div class="congestion-fill" style="width: ${route.overall_congestion}%; background: ${fillColor}"></div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function getCongestionColor(percentage) {
+            if (percentage < 30) return '#28a745';
+            if (percentage < 60) return '#ffc107';
+            return '#dc3545';
+        }
+
+        function getCongestionFillColor(percentage) {
+            if (percentage < 30) return 'linear-gradient(to right, #28a745, #5cb85c)';
+            if (percentage < 60) return 'linear-gradient(to right, #ffc107, #ff9800)';
+            return 'linear-gradient(to right, #ff9800, #dc3545)';
+        }
+
+        function clearRoutes() {
+            routeLayers.forEach(layer => map.removeLayer(layer));
+            routeLayers = [];
+        }
+
+        function clearAll() {
+            if (markers.origin) {
+                map.removeLayer(markers.origin);
+                markers.origin = null;
+            }
+            if (markers.destination) {
+                map.removeLayer(markers.destination);
+                markers.destination = null;
+            }
+
+            clearRoutes();
+
+            document.getElementById('origin-name').value = '';
+            document.getElementById('origin-lat').value = '';
+            document.getElementById('origin-lng').value = '';
+            document.getElementById('dest-name').value = '';
+            document.getElementById('dest-lat').value = '';
+            document.getElementById('dest-lng').value = '';
+            document.getElementById('origin-coords').textContent = 'Click map or enter coordinates';
+            document.getElementById('dest-coords').textContent = 'Click map or enter coordinates';
+            document.getElementById('results-panel').style.display = 'none';
+
+            originCoords = null;
+            destCoords = null;
+            clickMode = 'origin';
+
+            map.setView(JAKARTA_CENTER, 11);
+        }
+
+        // Initialize on load
+        window.onload = initMap;
+    </script>
+</body>
+</html>
